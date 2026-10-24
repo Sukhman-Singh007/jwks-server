@@ -1,47 +1,80 @@
-# JWKS Server - Project 1
+# Project 2: SQLite-backed JWKS server
 
-**Student:** Sukhman Singh  
-**Course:** CSCE 3550
+Author: Sukhman Singh | CSCE 3550
 
-## Description
+## Run (macOS/Linux)
 
-This project implements a basic RESTful JWKS server using Python and Flask.
+Open a terminal in this repository:
 
-The server generates RSA key pairs with unique Key IDs (`kid`) and expiration timestamps. It provides a JWKS endpoint containing valid public keys and an authentication endpoint that issues signed JSON Web Tokens (JWTs).
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python app.py
+```
 
-The server can also issue an expired JWT for testing purposes.
+The server listens on port 8080. The database is created in the terminal's
+current working directory as `totally_not_my_privateKeys.db`.
+Run the official Gradebot client from this same directory so it can inspect it.
 
-## Features
+## API
 
-- RSA key pair generation
-- Unique `kid` values
-- Key expiration
-- JWKS public key endpoint
-- JWT signing using RS256
-- Valid JWT generation
-- Expired JWT generation
-- Expired keys excluded from JWKS
-- Automated tests using pytest
-- Test coverage above 80%
+- `POST /auth`: plain-text RS256 JWT with a string `kid` header and future `exp`.
+- `POST /auth?expired`: token signed using a stored expired key, with expired `exp`.
+  Presence of the parameter selects expired keys, even `?expired=false`.
+- `GET /.well-known/jwks.json`: every currently valid public RSA key. Never
+  includes private RSA parameters or expired keys.
 
-## Endpoints
+Authentication is mocked as required. HTTP Basic credentials, JSON credentials,
+and an empty POST are accepted; this is not production user authentication.
+The mock subject is `userABC`.
 
-### GET /.well-known/jwks.json
+## Database and security
 
-Returns currently valid public keys in JWKS format.
+The exact required `keys(kid INTEGER PRIMARY KEY AUTOINCREMENT, key BLOB NOT
+NULL, exp INTEGER NOT NULL)` schema is created on startup. Private keys use
+PKCS1 PEM bytes. Startup retains existing rows and creates a missing expired
+or valid key category. Newly generated valid keys expire two hours later.
+The token lifetime is at most one hour and never exceeds its key expiration.
 
-### POST /auth
+All SQL data values use SQLite `?` parameter binding. The comparison operator
+is chosen from two hard-coded constants; no request content becomes SQL.
+Connections close after each operation. No database or private key belongs in
+Git: the included `.gitignore` excludes generated databases.
+Private keys are intentionally unencrypted on disk for this assignment;
+protect the database with filesystem access controls.
 
-Returns a valid JWT signed using the active RSA private key.
+## Tests and lint
 
-### POST /auth?expired=true
+```sh
+python -m pytest
+python -m flake8 app.py test_app.py
+```
 
-Returns an expired JWT signed using the expired RSA private key.
+Tests verify RSA signatures using the published JWKS, Basic/JSON requests,
+expired-token rejection, SQL-like query text, schema, PEM serialization,
+restart persistence, multiple valid keys, expiry boundaries, missing keys,
+and HTTP methods. Tests use temporary databases and do not alter the server DB.
+See `test-output.txt` for the actual development test results.
 
-## Installation
+## Required screenshots and submission
 
-Create and activate a virtual environment:
+1. Start the server with `python app.py`.
+2. In another terminal in this directory, print your identification:
+   `echo "Sukhman Singh | CSCE 3550 | Project 2"`.
+3. Stop any running server, then run the v1.1.2 client:
+   `./gradebot project-2 --dir=. --run='.venv/bin/python app.py' --code-dir=. --database=totally_not_my_privateKeys.db`.
+   This client starts the server itself.
+4. Capture the actual rubric/points table with identification visible and save
+   it as `screenshots/gradebot.png`.
+5. Print the same identification, run `python -m pytest`, and take a screenshot
+   showing the coverage percentage. Save as `screenshots/coverage.png`.
+6. Upload the repository contents, including both screenshots, to GitHub.
+7. Submit your actual `https://github.com/YOUR_USERNAME/YOUR_REPOSITORY` URL.
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
+Official Gradebot v1.1.2 was run on October 24, 2026: all four functional
+criteria received full points (65/65), Quality received 4.25/5, and the client
+reported 98.93%. This does not include the instructor-graded screenshot and
+test-suite rubric items. No Project 2 result screenshot is included yet. `test-output.txt` is genuine text
+output, not a substitute for the required screenshots. Review the code and
+follow your course's rules on attribution and assistance before submitting.
