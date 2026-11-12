@@ -89,6 +89,30 @@ def test_expired_auth():
     assert payload["exp"] < payload["iat"]
 
 
+def test_auth_expired_false_returns_valid():
+    """?expired=false (or =0) must return a valid JWT, not an expired one."""
+    client = app.test_client()
+
+    for query in ("?expired=false", "?expired=0"):
+        response = client.post("/auth" + query)
+
+        assert response.status_code == 200
+
+        token = response.get_data(as_text=True)
+
+        header = jwt.get_unverified_header(token)
+
+        assert header["kid"] == valid_key["kid"]
+
+        payload = jwt.decode(
+            token,
+            valid_key["private_key"].public_key(),
+            algorithms=["RS256"]
+        )
+
+        assert payload["exp"] > payload["iat"]
+
+
 def test_auth_get_not_allowed():
     """GET requests to /auth should not be allowed."""
     client = app.test_client()

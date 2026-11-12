@@ -74,7 +74,9 @@ def jwks():
 @app.route("/auth", methods=["POST"])
 def auth():
     """Issue a signed JWT using either the valid or expired key."""
-    use_expired = "expired" in request.args
+    use_expired = request.args.get("expired", "").lower() in (
+        "1", "true", "yes", "on"
+    )
 
     if use_expired:
         selected_key = expired_key
